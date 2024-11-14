@@ -68,7 +68,7 @@ def get_dns_products_name_price_link(city):
     for product in product_cards:
         name = ' '.join(product.find_element(
             By.TAG_NAME,
-            'span'
+            '.catalog-product__name::span'
         ).text.split('[')[0].strip().split(' ')[1:-1])
         price = product.find_element(
             By.CLASS_NAME,
