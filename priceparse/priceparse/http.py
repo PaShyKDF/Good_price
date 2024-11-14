@@ -1,12 +1,18 @@
 """This module contains the ``SeleniumRequestUc`` class"""
+from scrapy import Request
 
-from scrapy_selenium import SeleniumRequest
-
-
-class SeleniumRequest(SeleniumRequest):
+class SeleniumRequest(Request):
     """Scrapy ``Request`` subclass providing additional arguments"""
 
-    def __init__(self, wait_time=None, wait_until=None, screenshot=False, script=None, *args, **kwargs):
+    def __init__(
+        self,
+        wait_time=None,
+        wait_until=None,
+        screenshot=False,
+        script=None,
+        *args,
+        **kwargs
+    ):
         """Initialize a new selenium request
         Parameters
         ----------

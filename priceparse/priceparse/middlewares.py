@@ -4,6 +4,7 @@ from importlib import import_module
 
 from scrapy import signals
 from scrapy.exceptions import NotConfigured
+from selenium.common.exceptions import TimeoutException
 from scrapy.http import HtmlResponse
 from selenium.webdriver.support.ui import WebDriverWait
 from undetected_chromedriver import ChromeOptions, Chrome
@@ -39,15 +40,20 @@ class SeleniumMiddleware:
     def from_crawler(cls, crawler):
         """Initialize the middleware with the crawler settings"""
 
-        driver_arguments = crawler.settings.get('SELENIUM_DRIVER_ARGUMENTS', [])
+        driver_arguments = crawler.settings.get(
+            'SELENIUM_DRIVER_ARGUMENTS', []
+        )
 
         middleware = cls(
             driver_arguments=driver_arguments,
         )
 
-        crawler.signals.connect(middleware.spider_closed, signals.spider_closed)
+        crawler.signals.connect(
+            middleware.spider_closed, signals.spider_closed
+        )
 
         return middleware
+
 
     def process_request(self, request, spider):
         """Process a request using the selenium driver if applicable"""
@@ -55,26 +61,31 @@ class SeleniumMiddleware:
         if not isinstance(request, SeleniumRequest):
             return None
 
+        # Add cookies before loading the page
+        for cookie_name, cookie_value in request.cookies.items():
+            self.driver.add_cookie({'name': cookie_name, 'value': cookie_value})
+
         self.driver.get(request.url)
 
-        for cookie_name, cookie_value in request.cookies.items():
-            self.driver.add_cookie(
-                {
-                    'name': cookie_name,
-                    'value': cookie_value
-                }
-            )
+        if request.script:
+            self.driver.execute_script(request.script)
 
-        if request.wait_until:
-            WebDriverWait(self.driver, request.wait_time).until(
-                request.wait_until
+        try:
+            if request.wait_until:
+                WebDriverWait(self.driver, request.wait_time).until(
+                    request.wait_until
+                )
+        except TimeoutException:
+            spider.logger.error(f'Timeout waiting for {request.url}')
+            return HtmlResponse(
+                self.driver.current_url,
+                body=str.encode(''),
+                encoding='utf-8',
+                request=request,
             )
 
         if request.screenshot:
             request.meta['screenshot'] = self.driver.get_screenshot_as_png()
-
-        if request.script:
-            self.driver.execute_script(request.script)
 
         body = str.encode(self.driver.page_source)
 
@@ -82,14 +93,10 @@ class SeleniumMiddleware:
         request.meta.update({'driver': self.driver})
 
         return HtmlResponse(
-            self.driver.current_url,
-            body=body,
-            encoding='utf-8',
-            request=request
+            self.driver.current_url, body=body, encoding='utf-8', request=request
         )
 
     def spider_closed(self):
         """Shutdown the driver when spider is closed"""
 
         self.driver.quit()
-
