@@ -1,11 +1,15 @@
 # myproject/spiders/dns_spider.py
 import time
-
 import scrapy
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
 from ..http import SeleniumRequest
+
+SCRIPT = """
+    window.scrollTo(0, document.body.scrollHeight);
+    return new Promise((resolve) => setTimeout(resolve, 1000));  // Ждем 1 секунду
+"""
 
 
 class DnsSpider(scrapy.Spider):
@@ -19,19 +23,23 @@ class DnsSpider(scrapy.Spider):
             yield SeleniumRequest(
                 url=url,
                 callback=self.parse_dns,
-                wait_time=2,
+                wait_time=20,
                 wait_until=EC.visibility_of_all_elements_located(
-                    (By.CSS_SELECTOR, 'div.catalog-product.ui-button-widget')
+                    (
+                        By.CSS_SELECTOR,
+                        '.product-buy__price',
+                    )
                 ),
-                script='window.scrollTo(0, document.body.scrollHeight-100);',
+                script=SCRIPT,
             )
 
     def parse_dns(self, response):
+        time.sleep(5)
         product_cards = response.css('div.catalog-product.ui-button-widget')
         for product in product_cards:
             name = product.css('a').css('span::text').get('').strip()
             price = product.css('.product-buy__price::text').get('').strip()
-            link = product.css(
+            link = 'https://www.dns-shop.ru' + product.css(
                 '.catalog-product__name.ui-link.ui-link_black::attr(href)'
             ).get('')
             yield {'name': name, 'price': price, 'link': link}
@@ -44,9 +52,9 @@ class DnsSpider(scrapy.Spider):
             yield SeleniumRequest(
                 url='https://www.dns-shop.ru' + next_page,
                 callback=self.parse_dns,
-                wait_time=2,
+                wait_time=20,
                 wait_until=EC.visibility_of_all_elements_located(
-                    (By.CSS_SELECTOR, 'div.catalog-product.ui-button-widget')
+                    (By.CSS_SELECTOR, '.product-buy__price')
                 ),
-                script='window.scrollTo(0, document.body.scrollHeight - 100);',
+                script=SCRIPT,
             )

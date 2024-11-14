@@ -31,6 +31,7 @@ class SeleniumMiddleware:
         """
 
         driver_options = ChromeOptions()
+        driver_options.page_load_strategy = 'eager'
         for argument in driver_arguments:
             driver_options.add_argument(argument)
 
@@ -54,7 +55,6 @@ class SeleniumMiddleware:
 
         return middleware
 
-
     def process_request(self, request, spider):
         """Process a request using the selenium driver if applicable"""
 
@@ -63,12 +63,11 @@ class SeleniumMiddleware:
 
         # Add cookies before loading the page
         for cookie_name, cookie_value in request.cookies.items():
-            self.driver.add_cookie({'name': cookie_name, 'value': cookie_value})
+            self.driver.add_cookie(
+                {'name': cookie_name, 'value': cookie_value}
+            )
 
         self.driver.get(request.url)
-
-        if request.script:
-            self.driver.execute_script(request.script)
 
         try:
             if request.wait_until:
@@ -84,6 +83,9 @@ class SeleniumMiddleware:
                 request=request,
             )
 
+        if request.script:
+            self.driver.execute_script(request.script)
+
         if request.screenshot:
             request.meta['screenshot'] = self.driver.get_screenshot_as_png()
 
@@ -93,7 +95,10 @@ class SeleniumMiddleware:
         request.meta.update({'driver': self.driver})
 
         return HtmlResponse(
-            self.driver.current_url, body=body, encoding='utf-8', request=request
+            self.driver.current_url,
+            body=body,
+            encoding='utf-8',
+            request=request,
         )
 
     def spider_closed(self):
